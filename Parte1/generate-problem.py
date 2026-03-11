@@ -304,15 +304,11 @@ def main():
         #for x in crate:
         #    f.write("\t(at-crate " + x + " depot)\n")
         #    f.write("\t(crate-content " + x + " " + random.choice(content_types) + ")\n")
-        crate_num = 0
-        for x in range(options.persons):
-            for y in range(len(content_types)):
-                if need[x][y]:
-                    person_name = person[x]
-                    content_name = content_types[y]
-                    crate_num += 1
-                    f.write("\t(at-crate crate" + str(crate_num) + " depot)\n")
-                    f.write("\t(crate-content crate" + str(crate_num) + " " + content_name + ")\n")
+        for i in range(len(content_types)):
+            content_name = content_types[i]
+            for crate_name in crates_with_contents[i]:
+                f.write("\t(at-crate " + crate_name + " depot)\n")
+                f.write("\t(crate-content " + crate_name + " " + content_name + ")\n")
 
 
         f.write(")\n")
