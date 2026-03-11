@@ -258,7 +258,7 @@ def main():
         # Write the initial part of the problem
 
         f.write("(define (problem " + problem_name + ")\n")
-        f.write("(:domain drone-domain)\n")
+        f.write("(:domain emergency-logistics)\n")
         f.write("(:objects\n")
 
         ######################################################################
@@ -277,7 +277,7 @@ def main():
             f.write("\t" + x + " - crate\n")
 
         for x in content_types:
-            f.write("\t" + x + " - contents\n")
+            f.write("\t" + x + " - content\n")
 
         for x in person:
             f.write("\t" + x + " - person\n")
@@ -310,8 +310,9 @@ def main():
                 if need[x][y]:
                     person_name = person[x]
                     content_name = content_types[y]
-                    f.write("\t(at-crate crate" + str(crate_num + 1) + " depot)\n")
-                    f.write("\t(crate-content crate" + str(crate_num + 1) + " " + content_name + ")\n")
+                    crate_num += 1
+                    f.write("\t(at-crate crate" + str(crate_num) + " depot)\n")
+                    f.write("\t(crate-content crate" + str(crate_num) + " " + content_name + ")\n")
 
 
         f.write(")\n")
