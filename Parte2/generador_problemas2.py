@@ -155,8 +155,8 @@ def main():
 
     parser = OptionParser(usage='python generator.py [-help] options...')
     parser.add_option('-d', '--drones', metavar='NUM', dest='drones', action='store', type=int, help='the number of drones')
-    parser.add_option('-r', '--carriers', metavar='NUM', type=int, dest='carriers',
-                      help='the number of carriers, for later labs; use 0 for no carriers')
+    parser.add_option('-r', '--transporters', metavar='NUM', type=int, dest='transporters',
+                      help='the number of transporters, for later labs; use 0 for no transporters')
     parser.add_option('-l', '--locations', metavar='NUM', type=int, dest='locations',
                       help='the number of locations apart from the depot ')
     parser.add_option('-p', '--persons', metavar='NUM', type=int, dest='persons', help='the number of persons')
@@ -170,8 +170,8 @@ def main():
         print("You must specify --drones (use --help for help)")
         sys.exit(1)
 
-    if options.carriers is None:
-        print("You must specify --carriers (use --help for help)")
+    if options.transporters is None:
+        print("You must specify --transporters (use --help for help)")
         sys.exit(1)
 
     if options.locations is None:
@@ -203,7 +203,7 @@ def main():
         sys.exit(1)
 
     print("Drones\t\t", options.drones)
-    print("Carriers\t", options.carriers)
+    print("transporters\t", options.transporters)
     print("Locations\t", options.locations)
     print("Persons\t\t", options.persons)
     print("Crates\t\t", options.crates)
@@ -216,9 +216,9 @@ def main():
     drone = []
     person = []
     crate = []
-    carrier = []
+    transporter = [] # Estos serán los "transporters"
     location = []
-    # Objetos numéricos para la Parte 2
+    # Objetos para números (Parte 2)
     numbers = ["n0", "n1", "n2", "n3", "n4"]
 
     location.append("depot")
@@ -226,8 +226,9 @@ def main():
         location.append("loc" + str(x + 1))
     for x in range(options.drones):
         drone.append("drone" + str(x + 1))
-    for x in range(options.carriers):
-        carrier.append("carrier" + str(x + 1))
+    for x in range(options.transporters):
+        # Usamos el nombre 'transporter' para que coincida con tu dominio
+        transporter.append("transporter" + str(x + 1))
     for x in range(options.persons):
         person.append("person" + str(x + 1))
     for x in range(options.crates):
@@ -251,7 +252,7 @@ def main():
     need = setup_person_needs(options, crates_with_contents)
 
     # Define a problem name
-    problem_name = "drone_problem_d" + str(options.drones) + "_r" + str(options.carriers) + \
+    problem_name = "drone_problem_d" + str(options.drones) + "_r" + str(options.transporters) + \
                    "_l" + str(options.locations) + "_p" + str(options.persons) + "_c" + str(options.crates) + \
                    "_g" + str(options.goals) + "_ct" + str(len(content_types))
 
@@ -284,11 +285,12 @@ def main():
         for x in person:
             f.write("\t" + x + " - person\n")
 
-        for x in carrier:
-            f.write("\t" + x + " - carrier\n")
+        for x in transporter:
+            # Coincide con tu (:types transporter)
+            f.write("\t" + x + " - transporter\n")
 
-        # Objetos numéricos para la capacidad del transportador
         for x in numbers:
+            # Coincide con tu (:types num)
             f.write("\t" + x + " - num\n")
 
         f.write(")\n")
@@ -300,19 +302,20 @@ def main():
 
         # TODO: Initialize all facts here!
 
-        # Relaciones de números mediante predicados
+        # Relaciones numéricas (siguiente n0 n1)
         for i in range(len(numbers) - 1):
             f.write("\t(siguiente " + numbers[i] + " " + numbers[i+1] + ")\n")
 
         for x in drone:
             f.write("\t(at-drone " + x + " depot)\n")
-            # Un solo brazo para la Parte 2
+            # Un solo brazo para el drone
             f.write("\t(arm-free " + x + ")\n")
-        
-        # Inicialización de transportadores
-        for x in carrier:
-            f.write("\t(at-carrier " + x + " depot)\n")
-            f.write("\t(carrier-count " + x + " n0)\n")
+
+        for x in transporter:
+            # Coincide con tu predicado (at-transporter ?t ?l)
+            f.write("\t(at-transporter " + x + " depot)\n")
+            # Coincide con tu predicado (capacity ?t ?n) inicializado a 0
+            f.write("\t(capacity " + x + " n0)\n")
 
         loclist = location.copy()
         loclist.remove("depot")
