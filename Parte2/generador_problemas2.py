@@ -306,14 +306,13 @@ def main():
         for i in range(len(numbers) - 1):
             f.write("\t(siguiente " + numbers[i] + " " + numbers[i+1] + ")\n")
 
-        for x in drone:
+        for x, y in zip(drone, transporter):
             f.write("\t(at-drone " + x + " depot)\n")
             # Un solo brazo para el drone
             f.write("\t(arm-free " + x + ")\n")
+            f.write("\t(drone-has " + x + " " + y + ")\n")
 
         for x in transporter:
-            # Coincide con tu predicado (at-transporter ?t ?l)
-            f.write("\t(at-transporter " + x + " depot)\n")
             # Coincide con tu predicado (capacity ?t ?n) inicializado a 0
             f.write("\t(capacity " + x + " n0)\n")
 

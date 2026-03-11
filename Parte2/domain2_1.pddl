@@ -26,16 +26,16 @@
         (siguiente ?numA ?numB - num)
     )
 
-    (:action fly
-        :parameters (?d - drone ?from - location ?to - location)
-        :precondition (and
-            (at-drone ?d ?from)
-        )
-        :effect (and
-            (at-drone ?d ?to)
-            (not (at-drone ?d ?from))
-        )
-    )
+    ;;(:action fly
+    ;;    :parameters (?d - drone ?from - location ?to - location)
+    ;;    :precondition (and
+    ;;        (at-drone ?d ?from)
+    ;;    )
+    ;;    :effect (and
+    ;;        (at-drone ?d ?to)
+    ;;        (not (at-drone ?d ?from))
+    ;;    )
+    ;;)
 
     (:action pick-up
         :parameters (?d - drone ?c - crate ?l - location)
