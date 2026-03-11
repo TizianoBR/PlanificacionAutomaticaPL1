@@ -260,7 +260,7 @@ def main():
         # Write the initial part of the problem
 
         f.write("(define (problem " + problem_name + ")\n")
-        f.write("(:domain emergency-logistics)\n")
+        f.write("(:domain emergency-logistics-transporter)\n")
         f.write("(:objects\n")
 
         ######################################################################
