@@ -9,6 +9,7 @@
         (at-drone ?d - drone ?l - location)
         (at-person ?p - person ?l - location)
         (at-crate ?c - crate ?l - location)
+        (at-transporter ?t - transporter ?l - location)
         
         (crate-content ?c - crate ?ct - content)
         (person-has-content ?p - person ?ct - content)
@@ -20,22 +21,21 @@
         ;; Transportador
         (in-transporter ?c - crate ?t - transporter)
         (capacity ?t - transporter ?n - num)
-        (drone-has ?d - drone ?t - transporter)
         
         ;; Lógica numérica
         (siguiente ?numA ?numB - num)
     )
 
-    ;;(:action fly
-    ;;    :parameters (?d - drone ?from - location ?to - location)
-    ;;    :precondition (and
-    ;;        (at-drone ?d ?from)
-    ;;    )
-    ;;    :effect (and
-    ;;        (at-drone ?d ?to)
-    ;;        (not (at-drone ?d ?from))
-    ;;    )
-    ;;)
+    (:action fly
+        :parameters (?d - drone ?from - location ?to - location)
+        :precondition (and
+            (at-drone ?d ?from)
+        )
+        :effect (and
+            (at-drone ?d ?to)
+            (not (at-drone ?d ?from))
+        )
+    )
 
     (:action pick-up
         :parameters (?d - drone ?c - crate ?l - location)
@@ -72,11 +72,14 @@
         :parameters (?d - drone ?t - transporter ?from - location ?to - location)
         :precondition (and
             (at-drone ?d ?from)
-            (drone-has ?d ?t)
+            (at-transporter ?t ?from)
+            (arm-free ?d)
         )
         :effect (and
             (at-drone ?d ?to)
             (not (at-drone ?d ?from))
+            (at-transporter ?t ?to)
+            (not (at-transporter ?t ?from))
         )
     )
 
@@ -84,7 +87,7 @@
         :parameters (?d - drone ?c - crate ?t - transporter ?l - location ?n-actual - num ?n-sig - num)
         :precondition (and
             (at-drone ?d ?l)
-            (drone-has ?d ?t)
+            (at-transporter ?t ?l)
             (holding ?d ?c)
             (capacity ?t ?n-actual)
             (siguiente ?n-actual ?n-sig) ; Verifica que no hayamos llegado al máximo
@@ -102,7 +105,7 @@
         :parameters (?d - drone ?c - crate ?t - transporter ?l - location ?n-actual - num ?n-ant - num)
         :precondition (and
             (at-drone ?d ?l)
-            (drone-has ?d ?t)
+            (at-transporter ?t ?l)
             (arm-free ?d)
             (in-transporter ?c ?t)
             (capacity ?t ?n-actual)
