@@ -318,11 +318,7 @@ def main():
         for x in drone:
             f.write("\t(at-drone " + x + " depot)\n")
             f.write("\t(arm-free " + x + ")\n")
-<<<<<<< HEAD
             
-=======
-
->>>>>>> e917e50446ff65c80ea23061fb409ce6624b2f75
         for y in transporter:
             f.write("\t(at-transporter " + y + " depot)\n")
 
