@@ -26,7 +26,7 @@ declare -a SIZES=(
 for i in "${!SIZES[@]}"; do
     read d r l p c g <<< "${SIZES[$i]}"
     echo "Generando problema $((i+1)): d=$d r=$r l=$l p=$p c=$c g=$g"
-    python3 generador_problemas2.py -d "$d" -r "$r" -l "$l" -p "$p" -c "$c" -g "$g" > /dev/null 2>&1
+    python3 generador_problemas3.py -d "$d" -r "$r" -l "$l" -p "$p" -c "$c" -g "$g" > /dev/null 2>&1
 done
 
 echo ""
@@ -59,7 +59,7 @@ for i in "${!SIZES[@]}"; do
     # Metric-FF
     echo -n "  Metric-FF... " >&2
     START=$(date +%s.%N)
-    OUTPUT=$(timeout $TIMEOUT metric-ff -o "$DOMAIN" -f "$PROBLEM" 2>&1)
+    OUTPUT=$(timeout $TIMEOUT planutils run metric-ff "$DOMAIN" "$PROBLEM" 2>&1)
     EXITCODE=$?
     END=$(date +%s.%N)
     TIME=$(echo "$END - $START" | bc)

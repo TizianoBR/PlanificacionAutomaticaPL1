@@ -21,7 +21,7 @@ problem_sizes = [
 
 # Planificadores a probar con timeout de 60 segundos
 planners = {
-    'metric-ff': 'metric-ff -o {domain} -f {problem}',
+    'metric-ff': 'planutils run metric-ff {domain} {problem}',
     'downward-lama': 'planutils run downward -- --alias lama-first --overall-time-limit 60 {domain} {problem}',
     'downward-sat-fdss': 'planutils run downward -- --alias seq-sat-fdss-2 --overall-time-limit 60 {domain} {problem}',
     'downward-sat-auto': 'planutils run downward -- --alias seq-sat-fd-autotune-2 --overall-time-limit 60 {domain} {problem}',
@@ -65,7 +65,7 @@ def run_planner(planner_name, planner_cmd, domain_file, problem_file):
                 for line in output.split('\n'):
                     if 'cost' in line.lower():
                         try:
-                            cost = int(line.split()[-1])
+                            cost = int(float(line.split()[-1]))
                         except:
                             pass
         else:
