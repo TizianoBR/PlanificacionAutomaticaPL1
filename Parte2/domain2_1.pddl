@@ -1,5 +1,5 @@
 (define (domain emergency-logistics-transporter)
-    (:requirements :strips :typing)
+    (:requirements :strips :typing :action-costs)
 
     (:types
         drone person crate content location transporter num
@@ -14,16 +14,18 @@
         (crate-content ?c - crate ?ct - content)
         (person-has-content ?p - person ?ct - content)
         
-        ;; Dron con un único brazo
         (arm-free ?d - drone)
         (holding ?d - drone ?c - crate)
         
-        ;; Transportador
         (in-transporter ?c - crate ?t - transporter)
         (capacity ?t - transporter ?n - num)
         
-        ;; Lógica numérica
         (siguiente ?numA ?numB - num)
+    )
+
+    (:functions
+        (total-cost)
+        (fly-cost ?from - location ?to - location)
     )
 
     (:action fly
@@ -34,6 +36,7 @@
         :effect (and
             (at-drone ?d ?to)
             (not (at-drone ?d ?from))
+            (increase (total-cost) (fly-cost ?from ?to))
         )
     )
 
@@ -48,6 +51,7 @@
             (holding ?d ?c)
             (not (at-crate ?c ?l))
             (not (arm-free ?d))
+            (increase (total-cost) 1)
         )
     )
 
@@ -63,6 +67,7 @@
             (person-has-content ?p ?ct)
             (arm-free ?d)
             (not (holding ?d ?c))
+            (increase (total-cost) 1)
         )
     )
 
@@ -80,6 +85,7 @@
             (not (at-drone ?d ?from))
             (at-transporter ?t ?to)
             (not (at-transporter ?t ?from))
+            (increase (total-cost) (fly-cost ?from ?to))
         )
     )
 
@@ -98,6 +104,7 @@
             (in-transporter ?c ?t)
             (not (capacity ?t ?n-actual))
             (capacity ?t ?n-sig) ; Aumentamos la carga
+            (increase (total-cost) 1)
         )
     )
 
@@ -117,6 +124,7 @@
             (not (in-transporter ?c ?t))
             (not (capacity ?t ?n-actual))
             (capacity ?t ?n-ant) ; Reducimos la carga
+            (increase (total-cost) 1)
         )
     )
 )

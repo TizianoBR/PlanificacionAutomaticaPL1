@@ -302,6 +302,15 @@ def main():
 
         # TODO: Initialize all facts here!
 
+        # Inicializa el coste total para la optimización con :action-costs
+        f.write("\t(= (total-cost) 0)\n")
+
+        # Inicializa el coste de vuelo entre cada par de localizaciones
+        for i, loc_from in enumerate(location):
+            for j, loc_to in enumerate(location):
+                cost = flight_cost(location_coords, i, j)
+                f.write("\t(= (fly-cost " + loc_from + " " + loc_to + ") " + str(cost) + ")\n")
+
         # Relaciones numéricas (siguiente n0 n1)
         for i in range(len(numbers) - 1):
             f.write("\t(siguiente " + numbers[i] + " " + numbers[i+1] + ")\n")
@@ -353,6 +362,10 @@ def main():
                     f.write("\t(person-has-content " + person_name + " " + content_name + ")\n")
 
         f.write("\t))\n")
+
+        # Minimize total action cost
+        f.write("(:metric minimize (total-cost))\n")
+        
         f.write(")\n")
 
 
