@@ -11,31 +11,25 @@ cat > "$OUTPUT_FILE" << EOF
 Planificador,Tamaño,Drones,Transporters,Locations,Persons,Crates,Goals,Resuelto,Tiempo(s),Coste
 EOF
 
-echo "Generando problemas de prueba..."
-
-# Tamaños de problema: drones, transporters, locations, persons, crates, goals
-declare -a SIZES=(
-    "1 1 2 2 2 2"
-    "1 1 3 3 3 2"  
-    "1 1 4 4 4 3"
-    "2 1 3 4 4 3"
-    "2 1 4 5 5 4"
-)
-
-# Generar problemas
-for i in "${!SIZES[@]}"; do
-    read d r l p c g <<< "${SIZES[$i]}"
-    echo "Generando problema $((i+1)): d=$d r=$r l=$l p=$p c=$c g=$g"
-    python3 generador_problemas2.py -d "$d" -r "$r" -l "$l" -p "$p" -c "$c" -g "$g" > /dev/null 2>&1
-done
-
-echo ""
-echo "Ejecutando planificadores..."
+echo "Sistema de prueba con incremento progresivo hasta timeout..."
+echo "Tu planificador se probará con tamaños crecientes hasta que tome >60 segundos"
 echo "========================================"
+echo ""
+
+# Tracking de qué planificadores han hecho timeout
+declare -A PLANNER_TIMED_OUT=(
+    ["metric-ff"]=0
+    ["fd-lama"]=0
+    ["fd-sat-fdss2"]=0
+    ["fd-sat-autotune2"]=0
+    ["fd-opt-lmcut"]=0
+    ["fd-opt-bjolp"]=0
+    ["fd-opt-fdss2"]=0
+)
 
 # Función para extraer coste del output
 extract_cost() {
-    echo "$1" | grep -oP 'total cost|cost: \K[0-9]+|Plan length: \K[0-9]+' | head -1
+    echo "$1" | grep -oP 'total cost|cost: \K[0-9]+|Plan cost: \K[0-9]+' | head -1
 }
 
 # Función para extraer tiempo
@@ -43,86 +37,191 @@ extract_time() {
     echo "$1" | grep -oP 'Time: \K[0-9.]+|time: \K[0-9.]+' | head -1
 }
 
-# Probar cada tamaño con cada planificador
-for i in "${!SIZES[@]}"; do
-    read d r l p c g <<< "${SIZES[$i]}"
-    PROBLEM="drone_problem_d${d}_r${r}_l${l}_p${p}_c${c}_g${g}_ct2.pddl"
+# Función para contar cuántos planificadores aún no han hecho timeout
+all_timed_out() {
+    for val in "${PLANNER_TIMED_OUT[@]}"; do
+        if [ "$val" -eq 0 ]; then
+            return 1  # Al menos uno no ha hecho timeout
+        fi
+    done
+    return 0  # Todos han hecho timeout
+}
+
+# Parámetros iniciales de tamaño
+# "Tamaño" se refiere a personas, cajas, localizaciones y metas con el mismo valor
+# Tamaño 1 = 1 persona, 1 caja, 1 localización, 1 meta
+# Tamaño 2 = 2 personas, 2 cajas, 2 localizaciones, 2 metas, etc.
+DRONES=1
+TRANSPORTERS=1
+SIZE=1  # Variable de tamaño principal
+
+echo ""
+echo "Ejecutando pruebas con incremento progresivo hasta timeout..."
+echo "Tamaño = número de personas = número de cajas = número de localizaciones = número de metas"
+echo "========================================"
+echo ""
+
+# Bucle principal: continuar hasta que todos los planificadores hagan timeout
+while ! all_timed_out; do
+    SIZE=$((SIZE + 1))
+    # Los parámetros de tamaño se incrementan juntos
+    LOCATIONS=$SIZE
+    PERSONS=$SIZE
+    CRATES=$SIZE
+    GOALS=$SIZE
+    PROBLEM="drone_problem_d${DRONES}_r${TRANSPORTERS}_l${LOCATIONS}_p${PERSONS}_c${CRATES}_g${GOALS}_ct2.pddl"
+    
+    echo "Generando problema Tamaño $SIZE: d=$DRONES r=$TRANSPORTERS l=$LOCATIONS p=$PERSONS c=$CRATES g=$GOALS..."
+    python3 generador_problemas2.py -d "$DRONES" -r "$TRANSPORTERS" -l "$LOCATIONS" -p "$PERSONS" -c "$CRATES" -g "$GOALS" > /dev/null 2>&1
     
     if [ ! -f "$PROBLEM" ]; then
-        echo "Problema no encontrado: $PROBLEM"
-        continue
+        echo "Error: no se pudo generar el problema $PROBLEM"
+        break
     fi
     
-    SIZE=$((i+1))
-    echo "Tamaño $SIZE: $PROBLEM"
+    echo "Pruebas para Tamaño $SIZE: $PROBLEM"
     
     # Metric-FF
-    echo -n "  Metric-FF... " >&2
-    START=$(date +%s.%N)
-    OUTPUT=$(timeout $TIMEOUT planutils run metric-ff "$DOMAIN" "$PROBLEM" 2>&1)
-    EXITCODE=$?
-    END=$(date +%s.%N)
-    TIME=$(echo "$END - $START" | bc)
-    
-    if [ $EXITCODE -eq 0 ]; then
-        COST=$(extract_cost "$OUTPUT")
-        echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
-        echo "metric-ff,$SIZE,$d,$r,$l,$p,$c,$g,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
-    else
-        echo "TIMEOUT" >&2
-        echo "metric-ff,$SIZE,$d,$r,$l,$p,$c,$g,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+    if [ ${PLANNER_TIMED_OUT["metric-ff"]} -eq 0 ]; then
+        echo -n "  Metric-FF... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $TIMEOUT planutils run metric-ff "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ]; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "metric-ff,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "metric-ff,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["metric-ff"]=1
+        fi
     fi
     
     # Fastdownward lama-first
-    echo -n "  Fastdownward (lama-first)... " >&2
-    START=$(date +%s.%N)
-    OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias lama-first --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
-    EXITCODE=$?
-    END=$(date +%s.%N)
-    TIME=$(echo "$END - $START" | bc)
-    
-    if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
-        COST=$(extract_cost "$OUTPUT")
-        echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
-        echo "fd-lama,$SIZE,$d,$r,$l,$p,$c,$g,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
-    else
-        echo "NO" >&2
-        echo "fd-lama,$SIZE,$d,$r,$l,$p,$c,$g,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+    if [ ${PLANNER_TIMED_OUT["fd-lama"]} -eq 0 ]; then
+        echo -n "  Fastdownward (lama-first)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias lama-first --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-lama,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-lama,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-lama"]=1
+        fi
     fi
     
     # Fastdownward seq-sat-fdss-2
-    echo -n "  Fastdownward (seq-sat-fdss-2)... " >&2
-    START=$(date +%s.%N)
-    OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-sat-fdss-2 --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
-    EXITCODE=$?
-    END=$(date +%s.%N)
-    TIME=$(echo "$END - $START" | bc)
-    
-    if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
-        COST=$(extract_cost "$OUTPUT")
-        echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
-        echo "fd-sat-fdss2,$SIZE,$d,$r,$l,$p,$c,$g,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
-    else
-        echo "NO" >&2
-        echo "fd-sat-fdss2,$SIZE,$d,$r,$l,$p,$c,$g,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+    if [ ${PLANNER_TIMED_OUT["fd-sat-fdss2"]} -eq 0 ]; then
+        echo -n "  Fastdownward (seq-sat-fdss-2)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-sat-fdss-2 --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-sat-fdss2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-sat-fdss2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-sat-fdss2"]=1
+        fi
     fi
     
     # Fastdownward seq-sat-fd-autotune-2
-    echo -n "  Fastdownward (seq-sat-fd-autotune-2)... " >&2
-    START=$(date +%s.%N)
-    OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-sat-fd-autotune-2 --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
-    EXITCODE=$?
-    END=$(date +%s.%N)
-    TIME=$(echo "$END - $START" | bc)
-    
-    if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
-        COST=$(extract_cost "$OUTPUT")
-        echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
-        echo "fd-sat-autotune2,$SIZE,$d,$r,$l,$p,$c,$g,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
-    else
-        echo "NO" >&2
-        echo "fd-sat-autotune2,$SIZE,$d,$r,$l,$p,$c,$g,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+    if [ ${PLANNER_TIMED_OUT["fd-sat-autotune2"]} -eq 0 ]; then
+        echo -n "  Fastdownward (seq-sat-fd-autotune-2)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-sat-fd-autotune-2 --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-sat-autotune2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-sat-autotune2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-sat-autotune2"]=1
+        fi
     fi
+    
+    # Fastdownward seq-opt-lmcut
+    if [ ${PLANNER_TIMED_OUT["fd-opt-lmcut"]} -eq 0 ]; then
+        echo -n "  Fastdownward (seq-opt-lmcut)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-opt-lmcut --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-opt-lmcut,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-opt-lmcut,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-opt-lmcut"]=1
+        fi
+    fi
+    
+    # Fastdownward seq-opt-bjolp
+    if [ ${PLANNER_TIMED_OUT["fd-opt-bjolp"]} -eq 0 ]; then
+        echo -n "  Fastdownward (seq-opt-bjolp)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-opt-bjolp --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-opt-bjolp,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-opt-bjolp,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-opt-bjolp"]=1
+        fi
+    fi
+    
+    # Fastdownward seq-opt-fdss2
+    if [ ${PLANNER_TIMED_OUT["fd-opt-fdss2"]} -eq 0 ]; then
+        echo -n "  Fastdownward (seq-opt-fdss2)... " >&2
+        START=$(date +%s.%N)
+        OUTPUT=$(timeout $((TIMEOUT+5)) planutils run downward -- --alias seq-opt-fdss2 --overall-time-limit $TIMEOUT "$DOMAIN" "$PROBLEM" 2>&1)
+        EXITCODE=$?
+        END=$(date +%s.%N)
+        TIME=$(echo "$END - $START" | bc)
+        
+        if [ $EXITCODE -eq 0 ] && echo "$OUTPUT" | grep -q "Solution found"; then
+            COST=$(extract_cost "$OUTPUT")
+            echo "OK (coste: $COST, tiempo: ${TIME}s)" >&2
+            echo "fd-opt-fdss2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,Sí,$TIME,$COST" >> "$OUTPUT_FILE"
+        else
+            echo "TIMEOUT" >&2
+            echo "fd-opt-fdss2,$SIZE,$DRONES,$TRANSPORTERS,$LOCATIONS,$PERSONS,$CRATES,$GOALS,No,${TIMEOUT},-" >> "$OUTPUT_FILE"
+            PLANNER_TIMED_OUT["fd-opt-fdss2"]=1
+        fi
+    fi
+    
+    echo ""
     
 done
 
