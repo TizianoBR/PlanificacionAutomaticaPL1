@@ -4,7 +4,7 @@ echo "=== LIMPIANDO Y GENERANDO PROBLEMAS (Tamaños 2 al 10) ==="
 rm -f drone_problem_*.pddl
 rm -f errores_pyperplan.log
 for i in {2..10}; do
-    python3 generate-problem.py -d 1 -r 0 -l $i -p $i -c $i -g $i > /dev/null 2>&1
+    python3 generador_problemas2.py -d 1 -r 0 -l $i -p $i -c $i -g $i > /dev/null 2>&1
 done
 
 es_optimo() {
@@ -38,9 +38,9 @@ probar() {
         file="drone_problem_d1_r0_l${size}_p${size}_c${size}_g${size}_ct2.pddl"
         
         if [ "$heuristic" == "none" ]; then
-            cmd="pyperplan -s $search domain.pddl $file"
+            cmd="pyperplan -s $search domain2_1_no_cost.pddl $file"
         else
-            cmd="pyperplan -s $search -H $heuristic domain.pddl $file"
+            cmd="pyperplan -s $search -H $heuristic domain2_1_no_cost.pddl $file"
         fi
         
         # 1. Imprimimos el inicio de la fila SIN salto de línea
@@ -93,7 +93,7 @@ for alg in "gbf" "ehs"; do
         
         printf "%-18s | %-12s | " "$alg_name" "7"
         
-        timeout 60s pyperplan -s $alg -H $h domain.pddl $file > salida_tmp.log 2>&1
+        timeout 60s pyperplan -s $alg -H $h domain2_1_no_cost.pddl $file > salida_tmp.log 2>&1
         estado=$?
         
         if [ $estado -eq 124 ]; then

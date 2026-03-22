@@ -1,5 +1,5 @@
 (define (domain emergency-logistics-transporter)
-    (:requirements :strips :typing :action-costs)
+    (:requirements :strips :typing)
 
     (:types
         drone person crate content location transporter num
